@@ -69,7 +69,7 @@ from urllib.parse import parse_qs, urlparse
 # --------------------------------------------------------------------------- #
 
 SERVICE_NAME = "quiet-ledger"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 INVITE_TTL_MS = 10 * 60 * 1000
 REQUIRE_HTTPS = os.environ.get("QUIETLEDGER_REQUIRE_HTTPS") == "1"
 JOIN_CODE_RE = re.compile(r"^QLI-[A-Za-z0-9_-]{32}$")
@@ -79,6 +79,7 @@ SHARE_ID_RE = re.compile(r"^r_[A-Za-z0-9_-]{32}$")
 # a new build can be published without restarting the service.
 APK_DIR = Path(os.environ.get("APK_DIR", str(Path(__file__).resolve().parent / "apk")))
 APK_FILE_NAME = "quietledger.apk"
+PUBLIC_HTTP_GET_PATHS = frozenset(("/", "/health", "/v1/app/latest", f"/apk/{APK_FILE_NAME}"))
 APK_MANIFEST_NAME = "latest.json"
 APK_CONTENT_TYPE = "application/vnd.android.package-archive"
 APP_FALLBACK_VERSION_CODE = 1
@@ -1929,8 +1930,13 @@ class ApiHandler(BaseHTTPRequestHandler):
             if len(path) > 1 and path.endswith("/"):
                 path = path.rstrip("/")
 
-            public_health = method == "GET" and path in ("/", "/health")
-            if REQUIRE_HTTPS and not public_health:
+            # Older clients can bootstrap a signed update over the legacy
+            # endpoint. Account requests and non-public downloads require TLS.
+            public_http_read = (
+                method == "GET" and path in PUBLIC_HTTP_GET_PATHS
+                and "Authorization" not in self.headers and "X-Device-Id" not in self.headers
+            )
+            if REQUIRE_HTTPS and not public_http_read:
                 proxy_is_local = self.client_address[0] in ("127.0.0.1", "::1")
                 if not proxy_is_local or self.headers.get("X-Forwarded-Proto") != "https":
                     self.close_connection = True

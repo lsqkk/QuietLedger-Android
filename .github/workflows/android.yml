@@ -41,10 +41,24 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check for an already published APK
+        id: published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          apk="quietledger-${RELEASE_TAG#v}.apk"
+          assets=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,assets --jq 'select(.isDraft == false) | .assets[].name' 2>/dev/null) || assets=""
+          if grep -Fxq "$apk" <<< "$assets" && grep -Fxq "$apk.sha256" <<< "$assets"; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        if: steps.published.outputs.complete != 'true'
         with:
           name: unsigned-apk
       - name: Verify tag and sign APK
+        if: steps.published.outputs.complete != 'true'
         shell: bash
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -75,6 +89,7 @@ jobs:
           "$tools/apksigner" verify "$apk"
           sha256sum "$apk" > "$apk.sha256"
       - name: Publish GitHub Release
+        if: steps.published.outputs.complete != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}

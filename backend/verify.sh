@@ -99,7 +99,7 @@ code=$(http GET /health "$TMP/health.json")
 check_eq "GET $BASE/health -> HTTP" "$code" "200"
 jassert "health.status is ok" "$TMP/health.json" "j['status'] == 'ok'"
 jassert "health.service is quiet-ledger" "$TMP/health.json" "j['service'] == 'quiet-ledger'"
-jassert "health.version is 1.4.0" "$TMP/health.json" "j['version'] == '1.4.0'"
+jassert "health.version is 1.4.1" "$TMP/health.json" "j['version'] == '1.4.1'"
 jassert "health.db is ok" "$TMP/health.json" "j['db'] == 'ok'"
 jassert "health.time present" "$TMP/health.json" "bool(j['time'])"
 echo "GET /health -> $(cat "$TMP/health.json")"
