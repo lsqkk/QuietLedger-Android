@@ -1,0 +1,6 @@
+# QuietLedger backend dependencies
+#
+# Intentionally empty: the service uses only the Python 3.12 standard library
+# (http.server + sqlite3 + hashlib + secrets + json).  No pip packages needed.
+#
+# Deploy notes: see DEPLOY.md.  Runtime: python3 app.py with PORT=8791.

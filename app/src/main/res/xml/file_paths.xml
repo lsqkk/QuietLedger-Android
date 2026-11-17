@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="downloads" path="Download/" />
+    <!-- 完税证明分享卡（ReceiptCard 写入 cacheDir/receipts/，经 FileProvider 交给系统分享面板）。 -->
+    <cache-path name="receipts" path="receipts/" />
+</paths>

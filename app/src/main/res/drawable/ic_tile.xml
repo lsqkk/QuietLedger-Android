@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  快捷设置磁贴图标：白色收据 + 锯齿底边 + evenOdd 镂空横线。
+  快捷设置会按磁贴状态给图标染色，所以只能用单色实心路径；
+  内部横线必须是「镂空」（透明），不能画成黑色线条，否则在深色面板上会出现黑线。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M5,3 L19,3 L19,19.6 L17.6,21 L16.2,19.6 L14.8,21 L13.4,19.6 L12,21 L10.6,19.6 L9.2,21 L7.8,19.6 L6.4,21 L5,19.6 Z M8,6.6 L16,6.6 L16,7.8 L8,7.8 Z M8,10 L16,10 L16,11.2 L8,11.2 Z M8,13.4 L13,13.4 L13,14.6 L8,14.6 Z" />
+</vector>

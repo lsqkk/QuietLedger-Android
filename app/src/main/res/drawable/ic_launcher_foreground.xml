@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- receipt sheet -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,26 L72,26 L72,74 L68,78 L64,74 L60,78 L56,74 L52,78 L48,74 L44,78 L40,74 L36,78 Z" />
+    <!-- printed rules -->
+    <path
+        android:fillColor="#1B1815"
+        android:pathData="M42,36 L66,36 L66,38 L42,38 Z" />
+    <path
+        android:fillColor="#1B1815"
+        android:pathData="M42,43 L66,43 L66,44.5 L42,44.5 Z" />
+    <path
+        android:fillColor="#1B1815"
+        android:pathData="M42,49 L58,49 L58,50.5 L42,50.5 Z" />
+    <!-- seal -->
+    <path
+        android:fillColor="#B3392C"
+        android:pathData="M57,58 L69,58 L69,70 L57,70 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,61 L66,61 L66,62 L60,62 Z M60,64 L66,64 L66,65 L60,65 Z M60,67 L64,67 L64,68 L60,68 Z" />
+</vector>
