@@ -1,7 +1,7 @@
 {
-  "versionCode": 19,
-  "versionName": "1.9.3",
+  "versionCode": 20,
+  "versionName": "1.9.4",
   "minSdk": 26,
-  "notes": "加入账户改用十分钟内可用一次的邀请码。\n主动分享时生成收据链接。云端同步和更新使用 HTTPS。",
-  "publishedAt": "2026-11-17T11:02:03Z"
+  "notes": "修复部分网络下同步和检查更新连接被重置的问题。直连失败时自动换用备用加密线路。",
+  "publishedAt": "2026-11-17T13:00:08Z"
 }

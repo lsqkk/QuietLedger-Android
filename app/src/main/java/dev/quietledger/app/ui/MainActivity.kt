@@ -1542,7 +1542,7 @@ class AppState(
             val startedAt = System.currentTimeMillis()
             try {
                 withContext(Dispatchers.IO) {
-                    val conn = java.net.URL(info.apkUrl).openConnection() as java.net.HttpURLConnection
+                    val conn = Api.openApkConnection(info.apkUrl)
                     try {
                         conn.connectTimeout = 10_000
                         conn.readTimeout = 30_000

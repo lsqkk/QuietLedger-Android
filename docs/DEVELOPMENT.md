@@ -14,6 +14,8 @@ bash backend/verify.sh
 
 旧客户端的 HTTP 备用入口可读取公开更新清单和签名 APK，便于升级。账户以及账本数据请求仍须通过 HTTPS。首次安装请使用 HTTPS 下载。
 
+正式客户端 v1.9.4 支持备用加密线路。代理将 80 端口的 `/quiet-api/transport` 升级请求转给后端。后端启用 `QUIETLEDGER_TLS_RELAY=1` 后，在升级通道中收发按行编码的 TLS 字节，只转发到 `127.0.0.1:8792`。该监听端口必须绑定环回地址，只为 QuietLedger 的正式域名提供 HTTPS。客户端使用原域名验证证书，账户数据在升级后的 TLS 会话内发送。独立部署使用默认 HTTPS 线路即可。
+
 ## GitHub Release
 
 GitHub Actions 在提交和 PR 上构建未签名的发布 APK。推送与 `versionName` 一致的 `vX.Y.Z` 标签后，工作流用仓库 Secrets 中的签名材料签名、生成 SHA-256 校验文件并创建 Release。

@@ -112,7 +112,7 @@ APP_MULTIPLIERS = {
     "com.slack": 0.4,
 }
 
-SERVER_VERSION = "1.4.1"
+SERVER_VERSION = "1.4.2"
 TZ = timezone(timedelta(hours=8))  # Asia/Shanghai（UTC+8，无夏令时）
 
 # 测试用包名
@@ -606,7 +606,7 @@ def run_self_test(reporter: Reporter):
     reporter.eq("群发系数 noticeMultiplier（v2026-11-c）", DEFAULT_NOTICE_MULTIPLIER, 2.0)
     reporter.eq("单条封顶 capFactor（v2026-11-c）", DEFAULT_CAP_FACTOR, 3.0)
     reporter.eq("默认 appMultiplier", APP_MULTIPLIER_DEFAULT, 1.0)
-    reporter.eq("服务端 VERSION", SERVER_VERSION, "1.4.1")
+    reporter.eq("服务端 VERSION", SERVER_VERSION, "1.4.2")
     reporter.eq("前缀表条目数", len(APP_MULTIPLIERS), 9)
     expected_table = {
         "com.tencent.mm": 0.5,

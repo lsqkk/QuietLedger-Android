@@ -42,6 +42,7 @@ Duty rules v2026-11-c (deterministic, replicated offline by the Android client):
   price without dnd/burst/cap discounts, i.e. *all* discounts, not only bursts.
 """
 
+import base64
 import contextlib
 import hashlib
 import html
@@ -52,7 +53,9 @@ import math
 import os
 import re
 import secrets
+import select
 import signal
+import socket
 import sqlite3
 import sys
 import threading
@@ -69,9 +72,13 @@ from urllib.parse import parse_qs, urlparse
 # --------------------------------------------------------------------------- #
 
 SERVICE_NAME = "quiet-ledger"
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 INVITE_TTL_MS = 10 * 60 * 1000
 REQUIRE_HTTPS = os.environ.get("QUIETLEDGER_REQUIRE_HTTPS") == "1"
+TLS_RELAY = os.environ.get("QUIETLEDGER_TLS_RELAY") == "1"
+TLS_RELAY_SLOTS = threading.BoundedSemaphore(32)
+TLS_RELAY_CHUNK = 24576
+TLS_RELAY_LINE = TLS_RELAY_CHUNK * 4 // 3
 JOIN_CODE_RE = re.compile(r"^QLI-[A-Za-z0-9_-]{32}$")
 SHARE_ID_RE = re.compile(r"^r_[A-Za-z0-9_-]{32}$")
 
@@ -1930,6 +1937,9 @@ class ApiHandler(BaseHTTPRequestHandler):
             if len(path) > 1 and path.endswith("/"):
                 path = path.rstrip("/")
 
+            if method == "GET" and path == "/transport":
+                return self.handle_transport()
+
             # Older clients can bootstrap a signed update over the legacy
             # endpoint. Account requests and non-public downloads require TLS.
             public_http_read = (
@@ -1960,6 +1970,63 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self.send_error_json(500, "internal_error", "internal server error")
             except (BrokenPipeError, ConnectionResetError):
                 pass
+
+    def handle_transport(self):
+        """Frame opaque TLS bytes for the loopback-only QuietLedger HTTPS listener."""
+        self.close_connection = True
+        connection = {part.strip().lower() for part in self.headers.get("Connection", "").split(",")}
+        if (
+            not TLS_RELAY or self.client_address[0] not in ("127.0.0.1", "::1")
+            or self.headers.get("X-Forwarded-Proto") != "http"
+            or self.headers.get("Upgrade", "").lower() != "quietledger-tls-b64"
+            or "upgrade" not in connection
+            or self.headers.get("Content-Length", "0") != "0"
+            or "Transfer-Encoding" in self.headers or "Authorization" in self.headers
+        ):
+            return self.send_error_json(404, "not_found", "route not found")
+        if not TLS_RELAY_SLOTS.acquire(blocking=False):
+            return self.send_error_json(503, "busy", "transport temporarily busy")
+        try:
+            try:
+                upstream = socket.create_connection(("127.0.0.1", 8792), timeout=5)
+            except OSError:
+                return self.send_error_json(503, "unavailable", "transport unavailable")
+            with upstream:
+                try:
+                    self.send_response(101)
+                    self.send_header("Connection", "Upgrade")
+                    self.send_header("Upgrade", "quietledger-tls-b64")
+                    self.end_headers()
+                    self.wfile.flush()
+                    self.connection.settimeout(10)
+                    pending = bytearray()
+                    deadline = time.monotonic() + 360
+                    while (remaining := deadline - time.monotonic()) > 0:
+                        readable, _, _ = select.select(
+                            [self.connection, upstream], [], [], min(45, remaining)
+                        )
+                        if not readable:
+                            break
+                        for source in readable:
+                            chunk = source.recv(TLS_RELAY_CHUNK)
+                            if not chunk:
+                                return
+                            if source is upstream:
+                                self.connection.sendall(base64.b64encode(chunk) + b"\n")
+                                continue
+                            pending.extend(chunk)
+                            while (end := pending.find(b"\n")) >= 0:
+                                if not 0 < end <= TLS_RELAY_LINE:
+                                    return
+                                upstream.sendall(base64.b64decode(pending[:end], validate=True))
+                                del pending[:end + 1]
+                            if len(pending) > TLS_RELAY_LINE:
+                                return
+                except (OSError, ValueError):
+                    # Closing TLS streams, mobile handoffs and timeouts all end the relay.
+                    pass
+        finally:
+            TLS_RELAY_SLOTS.release()
 
     def _route_get(self, path: str, query: dict):
         if path in ("", "/"):

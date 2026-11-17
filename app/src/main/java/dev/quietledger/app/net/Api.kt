@@ -15,12 +15,16 @@ import dev.quietledger.app.core.Weekly
 import dev.quietledger.app.core.WeeklyApp
 import dev.quietledger.app.core.WeeklyDay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.Proxy
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
 
 class ApiException(val status: Int, val apiCode: String?, message: String) : IOException(message)
 
@@ -41,6 +45,14 @@ data class AppUpdate(
 object Api {
     private val primaryBase: String = BuildConfig.API_BASE.trimEnd('/')
     private val healthFallback = BuildConfig.HEALTH_FALLBACK.trimEnd('/')
+    private val relayBase = "https://ql.130923.xyz:80".takeIf { primaryBase == "https://ql.130923.xyz" }
+    private val relayFactory by lazy {
+        RelaySocketFactory(URL(primaryBase).host, HttpsURLConnection.getDefaultSSLSocketFactory())
+    }
+    private val routeLock = Mutex()
+
+    @Volatile
+    private var selectedBase: String? = null
 
     val baseUrl: String get() = primaryBase
     val serverHost: String get() = URL(primaryBase).host
@@ -51,7 +63,56 @@ object Api {
         body: JSONObject? = null,
         token: String? = null,
         deviceId: String? = null,
-    ): JSONObject = callAt(primaryBase, method, path, body, token, deviceId)
+    ): JSONObject = withRoute(retry = method == "GET") { base ->
+        callAt(base, method, path, body, token, deviceId)
+    }
+
+    private suspend fun selectBase(): String {
+        val relay = relayBase ?: return primaryBase
+        return routeLock.withLock {
+            selectedBase ?: try {
+                callAt(primaryBase, "GET", "/health", null, null, null)
+                primaryBase.also { selectedBase = it }
+            } catch (failure: IOException) {
+                if (failure is ApiException) throw failure
+                callAt(relay, "GET", "/health", null, null, null)
+                relay.also { selectedBase = it }
+            }
+        }
+    }
+
+    private suspend fun <T> withRoute(retry: Boolean, request: suspend (String) -> T): T {
+        val base = selectBase()
+        return try {
+            request(base)
+        } catch (failure: IOException) {
+            if (failure is ApiException) throw failure
+            routeLock.withLock {
+                if (selectedBase == base) selectedBase = null
+            }
+            val relay = relayBase
+            if (!retry || relay == null) throw failure
+            val alternate = if (base == primaryBase) relay else primaryBase
+            request(alternate).also {
+                routeLock.withLock { selectedBase = alternate }
+            }
+        }
+    }
+
+    private fun openConnection(base: String, path: String): HttpURLConnection {
+        val url = URL(base + path)
+        if (base != relayBase) return url.openConnection() as HttpURLConnection
+        return (url.openConnection(Proxy.NO_PROXY) as HttpsURLConnection).apply {
+            sslSocketFactory = relayFactory
+        }
+    }
+
+    fun openApkConnection(apkUrl: String): HttpURLConnection {
+        val origins = listOfNotNull(primaryBase, relayBase)
+        val origin = origins.firstOrNull { apkUrl == "$it/apk/quietledger.apk" }
+            ?: throw IOException("安装包地址不可用")
+        return openConnection(origin, "/apk/quietledger.apk")
+    }
 
     private suspend fun callAt(
         base: String,
@@ -65,7 +126,7 @@ object Api {
         require(url.protocol == "https" || (
             method == "GET" && path == "/health" && token == null && body == null && deviceId == null
         ))
-        val conn = url.openConnection() as HttpURLConnection
+        val conn = openConnection(base, path)
         try {
             conn.requestMethod = method
             conn.connectTimeout = 10_000
@@ -289,14 +350,12 @@ object Api {
     }
 
     /** 公开接口：不需要账户 token。 */
-    suspend fun appLatest(): AppUpdate {
-        val o = call("GET", "/v1/app/latest")
-        val path = o.optString("apkPath", "/apk/quietledger.apk")
-        val origin = baseUrl.trimEnd('/')
-        return AppUpdate(
+    suspend fun appLatest(): AppUpdate = withRoute(retry = true) { origin ->
+        val o = callAt(origin, "GET", "/v1/app/latest", null, null, null)
+        AppUpdate(
             versionCode = o.optInt("versionCode", 0),
             versionName = o.optString("versionName", ""),
-            apkUrl = origin + path,
+            apkUrl = "$origin/apk/quietledger.apk",
             apkSize = o.optLong("apkSize", 0L),
             sha256 = o.optString("sha256", ""),
             notes = o.optString("notes", ""),

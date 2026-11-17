@@ -14,8 +14,8 @@ android {
         applicationId = "dev.quietledger.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.9.3"
+        versionCode = 20
+        versionName = "1.9.4"
         buildConfigField("String", "API_BASE", "\"https://ql.130923.xyz\"")
         val fallback = healthFallback.get()
         require(fallback.isEmpty() || fallback.matches(Regex("https?://[a-zA-Z0-9.:-]+(?:/[a-zA-Z0-9/_-]*)?"))) {
